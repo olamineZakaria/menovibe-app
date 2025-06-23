@@ -35,7 +35,7 @@ class EventService {
             'Découvrez les meilleures pratiques alimentaires pour gérer les symptômes de la ménopause.',
         type: EventType.webinar,
         category: 'nutrition',
-        date: now.add(const Duration(days: 2)),
+        date: now.add(const Duration(days: 1)),
         duration: 90,
         maxAttendees: 50,
         currentAttendees: 25,
@@ -56,7 +56,7 @@ class EventService {
             'Échangez avec d\'autres femmes dans la même situation. Espace sécurisé et confidentiel.',
         type: EventType.support_group,
         category: 'soutien',
-        date: now.add(const Duration(days: 5)),
+        date: now.add(const Duration(days: 3)),
         duration: 120,
         maxAttendees: 20,
         currentAttendees: 12,
@@ -77,7 +77,7 @@ class EventService {
             'Séance de yoga spécialement conçue pour équilibrer vos hormones.',
         type: EventType.workshop,
         category: 'activite_physique',
-        date: now.subtract(const Duration(days: 3)),
+        date: now.subtract(const Duration(days: 1)),
         duration: 120,
         maxAttendees: 30,
         currentAttendees: 28,
@@ -91,7 +91,51 @@ class EventService {
         price: 25.0,
         currency: 'EUR',
         createdAt: now.subtract(const Duration(days: 10)),
-        updatedAt: now.subtract(const Duration(days: 3)),
+        updatedAt: now.subtract(const Duration(days: 1)),
+      ),
+      Event(
+        id: 'test_meditation_001',
+        title: 'Méditation guidée: Gestion du stress',
+        description:
+            'Séance de méditation spécialement conçue pour les femmes en période de ménopause.',
+        type: EventType.meditation,
+        category: 'bien_etre',
+        date: now.add(const Duration(hours: 2)),
+        duration: 60,
+        maxAttendees: 40,
+        currentAttendees: 15,
+        host: const EventHost(
+          name: 'Isabelle Moreau',
+          title: 'Instructrice de méditation',
+        ),
+        tags: ['méditation', 'stress', 'relaxation'],
+        status: EventStatus.upcoming,
+        isFree: true,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      Event(
+        id: 'test_conference_001',
+        title: 'Conférence: Innovations en santé féminine',
+        description:
+            'Découvrez les dernières avancées médicales pour la santé des femmes.',
+        type: EventType.conference,
+        category: 'education',
+        date: now.add(const Duration(days: 7)),
+        duration: 180,
+        maxAttendees: 100,
+        currentAttendees: 45,
+        host: const EventHost(
+          name: 'Dr. Anne Laurent',
+          title: 'Gynécologue spécialisée',
+        ),
+        tags: ['conférence', 'santé', 'innovation'],
+        status: EventStatus.upcoming,
+        isFree: false,
+        price: 15.0,
+        currency: 'EUR',
+        createdAt: now,
+        updatedAt: now,
       ),
     ];
   }
@@ -101,14 +145,19 @@ class EventService {
     final now = DateTime.now();
     return _firestore
         .collection(_collection)
-        .orderBy('date', descending: false)
+        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => Event.fromFirestore(doc))
-          .where((event) => event.date.isAfter(now))
-          .toList()
-        ..sort((a, b) => a.date.compareTo(b.date));
+      final allEvents =
+          snapshot.docs.map((doc) => Event.fromFirestore(doc)).toList();
+
+      // Si aucun événement, créer des événements de test
+      if (allEvents.isEmpty) {
+        return _createTestEvents();
+      }
+
+      // Retourner tous les événements ordonnés par date (plus récents en premier)
+      return allEvents..sort((a, b) => b.date.compareTo(a.date));
     });
   }
 

@@ -14,11 +14,12 @@ import 'symptom_tracker_page.dart';
 import 'ai_agent_page.dart';
 import 'resources_page.dart';
 import 'profile_page.dart';
-import 'community_page.dart';
+import 'recommendations_page.dart';
 import '../utils/responsive.dart';
 import '../blocs/event_bloc.dart';
 import '../services/event_service.dart';
 import '../widgets/event_card.dart';
+import '../widgets/weather_widget.dart';
 import 'event_detail_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -30,8 +31,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _currentIndex = 0;
-  Weather? _currentWeather;
-  bool _isLoadingWeather = false;
 
   // Animation controllers
   late AnimationController _parallaxController;
@@ -106,7 +105,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     const HomeContent(),
     const SymptomTrackerPage(),
     const AIAgentPage(),
-    const CommunityPage(),
+    const RecommendationsPage(),
     const ProfilePage(),
   ];
 
@@ -114,7 +113,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _initializeAnimations();
-    _loadWeatherData();
   }
 
   void _initializeAnimations() {
@@ -130,42 +128,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       parent: _parallaxController,
       curve: Curves.easeInOut,
     ));
-  }
-
-  Future<void> _loadWeatherData() async {
-    setState(() {
-      _isLoadingWeather = true;
-    });
-
-    try {
-      // Request location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        // Get current position
-        Position position = await Geolocator.getCurrentPosition();
-
-        // Get weather data (you'll need to add your API key)
-        WeatherFactory wf = WeatherFactory('YOUR_API_KEY');
-        Weather weather = await wf.currentWeatherByLocation(
-          position.latitude,
-          position.longitude,
-        );
-
-        setState(() {
-          _currentWeather = weather;
-          _isLoadingWeather = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isLoadingWeather = false;
-      });
-    }
   }
 
   @override
@@ -204,7 +166,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               _buildNavItem(0, Icons.home_rounded, 'Accueil'),
               _buildNavItem(1, Icons.track_changes_rounded, 'Suivi'),
               _buildNavItem(2, Icons.psychology_rounded, 'Luna'),
-              _buildNavItem(3, Icons.people_rounded, 'Communauté'),
+              _buildNavItem(3, Icons.recommend_rounded, 'Conseils'),
               _buildNavItem(4, Icons.person_rounded, 'Profil'),
             ],
           ),
@@ -267,8 +229,6 @@ class _HomeContentState extends State<HomeContent>
   final ScrollController _scrollController = ScrollController();
   late AnimationController _parallaxController;
   late Animation<double> _parallaxAnimation;
-  Weather? _currentWeather;
-  bool _isLoadingWeather = false;
   final Map<String, dynamic> _weeklyStats = {
     'stress_level': 0,
     'sleep_quality': 0,
@@ -427,7 +387,7 @@ class _HomeContentState extends State<HomeContent>
                         SizedBox(height: isTablet ? 48 : 32),
                         _buildRecommendations(context, isTablet),
                         SizedBox(height: isTablet ? 48 : 32),
-                        _buildCommunityEvents(context, isTablet),
+                        _buildUpcomingEvents(context, isTablet),
                       ],
                     ),
                   ),
@@ -467,69 +427,233 @@ class _HomeContentState extends State<HomeContent>
   }
 
   Widget _buildWeatherWidget(BuildContext context, bool isTablet) {
-    return AnimatedBuilder(
-      animation: _parallaxAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 20 * _parallaxAnimation.value),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: AppColors.blueGradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadow,
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+    return const WeatherWidget();
+  }
+
+  Widget _buildUpcomingEvents(BuildContext context, bool isTablet) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth > 900;
+
+    return BlocProvider(
+      create: (context) => EventBloc(EventService())..add(LoadEvents()),
+      child: BlocBuilder<EventBloc, EventState>(
+        builder: (context, state) {
+          if (state is EventLoading) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Événements',
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 28 : (isTablet ? 24 : 20),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: isDesktop ? 350 : (isTablet ? 320 : 300),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
               ],
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.wb_sunny_rounded,
-                  size: isTablet ? 48 : 40,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Météo locale',
-                        style: GoogleFonts.inter(
-                          fontSize: isTablet ? 18 : 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+            );
+          }
+
+          if (state is EventsLoaded) {
+            final allEvents = state.events;
+
+            if (allEvents.isEmpty) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Événements',
+                    style: GoogleFonts.inter(
+                      fontSize: isDesktop ? 28 : (isTablet ? 24 : 20),
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Aucun événement disponible pour le moment',
+                    style: GoogleFonts.inter(
+                      fontSize: isDesktop ? 18 : (isTablet ? 16 : 14),
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    height: isDesktop ? 120 : (isTablet ? 100 : 80),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.event_available,
+                          color: AppColors.primary,
+                          size: isDesktop ? 40 : (isTablet ? 32 : 28),
                         ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Restez informée',
+                                style: GoogleFonts.inter(
+                                  fontSize:
+                                      isDesktop ? 20 : (isTablet ? 18 : 16),
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'De nouveaux événements seront bientôt disponibles',
+                                style: GoogleFonts.inter(
+                                  fontSize:
+                                      isDesktop ? 16 : (isTablet ? 14 : 12),
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Événements',
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 28 : (isTablet ? 24 : 20),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Découvrez tous nos événements communautaires',
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 18 : (isTablet ? 16 : 14),
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: isDesktop ? 520 : (isTablet ? 480 : 440),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: allEvents.length,
+                    itemBuilder: (context, index) {
+                      final event = allEvents[index];
+                      return Container(
+                        width: isDesktop ? 470 : (isTablet ? 420 : 370),
+                        margin: EdgeInsets.only(
+                          right: index == allEvents.length - 1 ? 0 : 20,
+                        ),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EventDetailPage(
+                                  eventId: event.id,
+                                ),
+                              ),
+                            );
+                          },
+                          child: EventCard(event: event),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          }
+
+          if (state is EventError) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Événements',
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 28 : (isTablet ? 24 : 20),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: isDesktop ? 120 : (isTablet ? 100 : 80),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: AppColors.error,
+                        size: isDesktop ? 40 : (isTablet ? 32 : 28),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _getWeatherImpact(),
-                        style: GoogleFonts.inter(
-                          fontSize: isTablet ? 14 : 12,
-                          color: Colors.white.withOpacity(0.9),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Erreur de chargement',
+                              style: GoogleFonts.inter(
+                                fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.error,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Impossible de charger les événements',
+                              style: GoogleFonts.inter(
+                                fontSize: isDesktop ? 16 : (isTablet ? 14 : 12),
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (_isLoadingWeather)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
               ],
-            ),
-          ),
-        );
-      },
+            );
+          }
+
+          return const SizedBox.shrink();
+        },
+      ),
     );
   }
 
@@ -629,7 +753,12 @@ class _HomeContentState extends State<HomeContent>
             if (isTablet || isDesktop)
               TextButton.icon(
                 onPressed: () {
-                  // Navigate to all recommendations
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RecommendationsPage(),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 label: Text(
@@ -700,7 +829,6 @@ class _HomeContentState extends State<HomeContent>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header with icon and type
                         Row(
                           children: [
                             Container(
@@ -745,8 +873,6 @@ class _HomeContentState extends State<HomeContent>
                           ],
                         ),
                         const SizedBox(height: 16),
-
-                        // Title
                         Text(
                           recommendation['title'],
                           style: GoogleFonts.inter(
@@ -759,8 +885,6 @@ class _HomeContentState extends State<HomeContent>
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
-
-                        // Description
                         Expanded(
                           child: Text(
                             recommendation['description'],
@@ -774,8 +898,6 @@ class _HomeContentState extends State<HomeContent>
                           ),
                         ),
                         const SizedBox(height: 12),
-
-                        // Footer with duration and action
                         Row(
                           children: [
                             Container(
@@ -837,164 +959,6 @@ class _HomeContentState extends State<HomeContent>
     );
   }
 
-  Widget _buildCommunityEvents(BuildContext context, bool isTablet) {
-    return BlocProvider<EventBloc>(
-      create: (_) => EventBloc(EventService())..add(LoadEvents()),
-      child: BlocBuilder<EventBloc, EventState>(
-        builder: (context, state) {
-          if (state is EventLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is EventsLoaded) {
-            final upcoming = state.upcomingEvents;
-            final past = state.pastEvents;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Événements Communautaires - Webinaires et Groupes de Soutien',
-                        style: GoogleFonts.inter(
-                          fontSize: isTablet ? 24 : 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (upcoming.isEmpty && past.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.event_busy,
-                          size: 48,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Aucun événement pour le moment',
-                          style: GoogleFonts.inter(
-                            fontSize: isTablet ? 18 : 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Cliquez sur "Créer événements test" pour ajouter des événements de démonstration',
-                          style: GoogleFonts.inter(
-                            fontSize: isTablet ? 14 : 12,
-                            color: AppColors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                if (upcoming.isNotEmpty) ...[
-                  Text(
-                    'Événements à venir',
-                    style: GoogleFonts.inter(
-                      fontSize: isTablet ? 20 : 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...upcoming.map((event) => EventCard(
-                        event: event,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  EventDetailPage(eventId: event.id),
-                            ),
-                          );
-                        },
-                      )),
-                ],
-                if (past.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    'Événements passés',
-                    style: GoogleFonts.inter(
-                      fontSize: isTablet ? 20 : 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...past.map((event) => Opacity(
-                        opacity: 0.6,
-                        child: EventCard(
-                          event: event,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    EventDetailPage(eventId: event.id),
-                              ),
-                            );
-                          },
-                        ),
-                      )),
-                ],
-              ],
-            );
-          } else if (state is EventError) {
-            return Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.error),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: AppColors.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Erreur lors du chargement des événements',
-                    style: GoogleFonts.inter(
-                      fontSize: isTablet ? 18 : 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.error,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    state.message,
-                    style: GoogleFonts.inter(
-                      fontSize: isTablet ? 14 : 12,
-                      color: AppColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-    );
-  }
-
   String _getPersonalizedGreeting() {
     final user = context.read<AuthBloc>().state;
     String name = '';
@@ -1019,23 +983,6 @@ class _HomeContentState extends State<HomeContent>
     } else {
       return '$timeGreeting, comment vous sentez-vous aujourd\'hui ?';
     }
-  }
-
-  String _getWeatherImpact() {
-    if (_currentWeather == null) return '';
-
-    final temperature = _currentWeather!.temperature?.celsius ?? 0;
-    final humidity = _currentWeather!.humidity ?? 0;
-
-    if (temperature > 25) {
-      return 'Temps chaud - risque de bouffées de chaleur accru';
-    } else if (humidity > 70) {
-      return 'Humidité élevée - peut affecter votre confort';
-    } else if (temperature < 10) {
-      return 'Temps froid - pensez à vous couvrir chaudement';
-    }
-
-    return 'Conditions météo favorables';
   }
 
   IconData _getStatIcon(String statKey) {

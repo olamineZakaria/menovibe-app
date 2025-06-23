@@ -77,6 +77,9 @@ dependencies:
   weather: ^3.1.1
   geolocator: ^10.1.0
   
+  # HTTP requests
+  http: ^1.1.0
+  
   # Local storage
   shared_preferences: ^2.2.2
   

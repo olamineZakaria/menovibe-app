@@ -165,7 +165,23 @@ class _CycleCalendarState extends State<CycleCalendar> {
     final isPredictedPeriod = _isPredictedPeriodDay(date);
     final isFertileWindow = _isFertileWindowDay(date);
     final moodColor = _getMoodColor(cycleDay?.mood);
-    final symptoms = cycleDay?.symptoms ?? [];
+    final hasSymptoms = (cycleDay?.symptoms ?? []).isNotEmpty;
+
+    // Determine background color based on symptoms and other factors
+    Color? backgroundColor;
+    if (isSelected) {
+      backgroundColor = AppColors.primary.withOpacity(0.2);
+    } else if (hasSymptoms) {
+      backgroundColor = AppColors.secondary.withOpacity(0.3);
+    } else if (isToday) {
+      backgroundColor = AppColors.primary.withOpacity(0.1);
+    } else if (hasPeriod) {
+      backgroundColor = Colors.pink[100]?.withOpacity(0.3);
+    } else if (isPredictedPeriod) {
+      backgroundColor = Colors.pink[50]?.withOpacity(0.3);
+    } else if (isFertileWindow) {
+      backgroundColor = Colors.orange[100]?.withOpacity(0.3);
+    }
 
     return GestureDetector(
       onTap: () {
@@ -176,99 +192,134 @@ class _CycleCalendarState extends State<CycleCalendar> {
       },
       child: Container(
         margin: const EdgeInsets.all(1),
-        height: 60, // Increased height to accommodate more icons
+        height: 50,
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withOpacity(0.2)
-              : isToday
-                  ? AppColors.primary.withOpacity(0.1)
-                  : Colors.transparent,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(8),
           border: isSelected
               ? Border.all(color: AppColors.primary, width: 2)
-              : null,
+              : hasSymptoms
+                  ? Border.all(color: AppColors.secondary, width: 1)
+                  : null,
         ),
-        child: Stack(
-          children: [
-            // Day number
-            Positioned(
-              top: 2,
-              left: 2,
-              child: Text(
-                date.day.toString(),
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                  color: isCurrentMonth
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary.withOpacity(0.5),
-                ),
-              ),
-            ),
-
-            // Period icon (🌸) - top right
-            if (hasPeriod || isPredictedPeriod)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Text(
-                  '🌸',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: hasPeriod
-                        ? Colors.pink[600]
-                        : Colors.pink[300]?.withOpacity(0.6),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Day number - positioned safely
+                Positioned(
+                  top: 2,
+                  left: 2,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.4,
+                    ),
+                    child: Text(
+                      date.day.toString(),
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                        color: isCurrentMonth
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary.withOpacity(0.5),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-              ),
 
-            // Flow intensity drops (💧) - below period icon
-            if (hasPeriod)
-              Positioned(
-                top: 16,
-                right: 2,
-                child: _buildFlowDrops(cycleDay!.flow!),
-              ),
-
-            // Fertile window icon (🌼) - bottom right
-            if (isFertileWindow &&
-                date.isBefore(DateTime.now().add(const Duration(days: 1))))
-              Positioned(
-                bottom: 2,
-                right: 2,
-                child: Text(
-                  '🌼',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.orange[400]?.withOpacity(0.8),
+                // Period icon (🌸) - top right, with constraints
+                if (hasPeriod || isPredictedPeriod)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.3,
+                        maxHeight: constraints.maxHeight * 0.3,
+                      ),
+                      child: Text(
+                        '🌸',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: hasPeriod
+                              ? Colors.pink[600]
+                              : Colors.pink[300]?.withOpacity(0.6),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
-                ),
-              ),
 
-            // Mood indicator dot - bottom left
-            if (moodColor != null)
-              Positioned(
-                bottom: 2,
-                left: 2,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: moodColor,
-                    shape: BoxShape.circle,
+                // Flow intensity drops (💧) - below period icon, with constraints
+                if (hasPeriod)
+                  Positioned(
+                    top: 16,
+                    right: 2,
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.4,
+                        maxHeight: constraints.maxHeight * 0.3,
+                      ),
+                      child: _buildFlowDrops(cycleDay!.flow!),
+                    ),
                   ),
-                ),
-              ),
 
-            // Symptom icons - center area
-            if (symptoms.isNotEmpty)
-              Positioned(
-                top: 20,
-                left: 0,
-                right: 0,
-                child: _buildSymptomIcons(symptoms),
-              ),
-          ],
+                // Fertile window icon (🌼) - bottom right, with constraints
+                if (isFertileWindow &&
+                    date.isBefore(DateTime.now().add(const Duration(days: 1))))
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.3,
+                        maxHeight: constraints.maxHeight * 0.3,
+                      ),
+                      child: Text(
+                        '🌼',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: Colors.orange[400]?.withOpacity(0.8),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+
+                // Mood indicator dot - bottom left
+                if (moodColor != null)
+                  Positioned(
+                    bottom: 2,
+                    left: 2,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: moodColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+
+                // Symptom indicator dot - center bottom (small indicator)
+                if (hasSymptoms)
+                  Positioned(
+                    bottom: 2,
+                    left: 10,
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -290,64 +341,9 @@ class _CycleCalendarState extends State<CycleCalendar> {
 
     return Text(
       drops,
-      style: const TextStyle(fontSize: 10),
-    );
-  }
-
-  Widget _buildSymptomIcons(List<String> symptoms) {
-    if (symptoms.isEmpty) return const SizedBox.shrink();
-
-    // Map symptoms to emojis
-    final Map<String, String> symptomEmojis = {
-      'maux de tête': '🤕',
-      'nausée': '🤢',
-      'ballonnements': '💨',
-      'douleur au bas-ventre': '💔',
-      'fatigue': '😴',
-      'bouffées de chaleur': '🌡️',
-      'crampes': '💔',
-      'douleurs lombaires': '🦴',
-      'irritabilité': '😤',
-      'anxiété': '😰',
-      'dépression': '😔',
-      'insomnie': '😴',
-      'sueurs nocturnes': '💦',
-      'sécheresse vaginale': '🌵',
-      'gain de poids': '⚖️',
-      'perte de libido': '💔',
-    };
-
-    // Get emojis for symptoms (limit to 3 for space)
-    final List<String> emojis = [];
-    for (final symptom in symptoms.take(3)) {
-      final emoji = symptomEmojis[symptom.toLowerCase()] ?? '⚠️';
-      emojis.add(emoji);
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ...emojis.map((emoji) => Text(
-              emoji,
-              style: const TextStyle(fontSize: 10),
-            )),
-        if (symptoms.length > 3)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '+${symptoms.length - 3}',
-              style: const TextStyle(
-                fontSize: 8,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-      ],
+      style: const TextStyle(fontSize: 8),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 
@@ -371,6 +367,17 @@ class _CycleCalendarState extends State<CycleCalendar> {
             ),
           ),
           const SizedBox(height: 8),
+
+          // Basic indicators
+          Text(
+            'Indicateurs de base',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
           Wrap(
             spacing: 16,
             runSpacing: 8,
@@ -381,6 +388,46 @@ class _CycleCalendarState extends State<CycleCalendar> {
               _buildLegendItem('💧', 'Flux léger'),
               _buildLegendItem('💧💧', 'Flux moyen'),
               _buildLegendItem('💧💧💧', 'Flux abondant'),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Symptom indicators
+          Text(
+            'Symptômes',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _buildColorLegendItem(
+                  AppColors.secondary, 'Jours avec symptômes'),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Mood indicators
+          Text(
+            'Humeurs',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
               _buildLegendItem('🟡', 'Humeur positive'),
               _buildLegendItem('🔵', 'Humeur calme'),
               _buildLegendItem('🟣', 'Humeur difficile'),
@@ -401,6 +448,31 @@ class _CycleCalendarState extends State<CycleCalendar> {
           style: TextStyle(
             fontSize: 12,
             color: isPredicted ? Colors.pink[300]?.withOpacity(0.6) : null,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildColorLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color, width: 1),
           ),
         ),
         const SizedBox(width: 4),

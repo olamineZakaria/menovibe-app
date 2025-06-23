@@ -9,6 +9,7 @@ import 'pages/resources_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/community_page.dart';
 import 'pages/symptom_tracker_page.dart';
+import 'pages/recommendations_page.dart';
 import 'pages/onboarding_flow.dart';
 import 'blocs/auth_bloc.dart';
 import 'blocs/chat_bloc.dart';
@@ -327,6 +328,7 @@ class MenopauseWellnessApp extends StatelessWidget {
           '/profile': (context) => const ProfilePage(),
           '/community': (context) => const CommunityPage(),
           '/symptom-tracker': (context) => const SymptomTrackerPage(),
+          '/recommendations': (context) => const RecommendationsPage(),
         },
       ),
     );

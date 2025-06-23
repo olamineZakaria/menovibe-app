@@ -38,7 +38,7 @@ class SymptomSelector extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 2.5,
+        childAspectRatio: 3.0,
       ),
       itemCount: _symptoms.length,
       itemBuilder: (context, index) {
@@ -66,15 +66,20 @@ class SymptomSelector extends StatelessWidget {
                 width: 2,
               ),
             ),
-            child: Center(
-              child: Text(
-                symptom,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF1F2937),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Center(
+                child: Text(
+                  symptom,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF1F2937),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
           ),

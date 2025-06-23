@@ -157,6 +157,15 @@ class AppColors {
     ],
   );
 
+  static const LinearGradient weatherGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF87CEEB), // Sky blue
+      Color(0xFF4682B4), // Steel blue
+    ],
+  );
+
   // Material 3 Color Scheme - Updated with new palette
   static const ColorScheme lightColorScheme = ColorScheme(
     brightness: Brightness.light,

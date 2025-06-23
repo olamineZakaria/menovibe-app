@@ -19,9 +19,12 @@ class EventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPast = event.isPast;
     final isFull = event.isFull;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final isDesktop = screenWidth > 900;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       elevation: isPast ? 2 : 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -30,6 +33,8 @@ class EventCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
+          width: isDesktop ? 450 : (isTablet ? 400 : 350),
+          height: isDesktop ? 500 : (isTablet ? 460 : 420),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             color: isPast ? Colors.grey.shade100 : Colors.white,
@@ -42,7 +47,7 @@ class EventCard extends StatelessWidget {
                 children: [
                   // Image de l'événement
                   Container(
-                    height: 120,
+                    height: isDesktop ? 220 : (isTablet ? 200 : 180),
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(
@@ -108,191 +113,197 @@ class EventCard extends StatelessWidget {
               ),
 
               // Contenu de la carte
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Titre
-                    Text(
-                      event.title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isPast ? Colors.grey.shade600 : Colors.black87,
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.all(isDesktop ? 28 : (isTablet ? 24 : 20)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Titre - Plus d'espace pour le titre complet
+                      Text(
+                        event.title,
+                        style: TextStyle(
+                          fontSize: isDesktop ? 24 : (isTablet ? 22 : 20),
+                          fontWeight: FontWeight.bold,
+                          color: isPast ? Colors.grey.shade600 : Colors.black87,
+                          height: 1.2,
+                        ),
+                        maxLines: isDesktop ? 4 : (isTablet ? 3 : 2),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
 
-                    const SizedBox(height: 8),
+                      const SizedBox(height: 12),
 
-                    // Description
-                    Text(
-                      event.description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isPast
-                            ? Colors.grey.shade500
-                            : Colors.grey.shade700,
+                      // Description
+                      Expanded(
+                        child: Text(
+                          event.description,
+                          style: TextStyle(
+                            fontSize: isDesktop ? 18 : (isTablet ? 16 : 15),
+                            color: isPast
+                                ? Colors.grey.shade500
+                                : Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                          maxLines: isDesktop ? 5 : (isTablet ? 4 : 3),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
 
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
-                    // Informations de l'événement
-                    Row(
-                      children: [
-                        // Date et heure
-                        Expanded(
-                          child: Row(
+                      // Informations de l'événement
+                      Row(
+                        children: [
+                          // Date et heure
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: isDesktop ? 22 : (isTablet ? 20 : 18),
+                                  color: isPast
+                                      ? Colors.grey.shade500
+                                      : AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat('dd/MM/yyyy à HH:mm')
+                                        .format(event.date),
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                                      color: isPast
+                                          ? Colors.grey.shade500
+                                          : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Durée
+                          Row(
                             children: [
                               Icon(
-                                Icons.calendar_today,
-                                size: 16,
+                                Icons.access_time,
+                                size: isDesktop ? 22 : (isTablet ? 20 : 18),
                                 color: isPast
                                     ? Colors.grey.shade500
                                     : AppColors.primary,
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  DateFormat('dd/MM/yyyy à HH:mm')
-                                      .format(event.date),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isPast
-                                        ? Colors.grey.shade500
-                                        : Colors.grey.shade700,
-                                  ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${event.duration} min',
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                                  color: isPast
+                                      ? Colors.grey.shade500
+                                      : Colors.grey.shade700,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-
-                        // Durée
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              size: 16,
-                              color: isPast
-                                  ? Colors.grey.shade500
-                                  : AppColors.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${event.duration} min',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isPast
-                                    ? Colors.grey.shade500
-                                    : Colors.grey.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Hôte et participants
-                    Row(
-                      children: [
-                        // Hôte
-                        Expanded(
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 12,
-                                backgroundColor:
-                                    AppColors.primary.withOpacity(0.1),
-                                child: Text(
-                                  event.host.name.isNotEmpty
-                                      ? event.host.name[0].toUpperCase()
-                                      : 'H',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  event.host.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isPast
-                                        ? Colors.grey.shade500
-                                        : Colors.grey.shade700,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Nombre de participants
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.people,
-                              size: 16,
-                              color: isPast
-                                  ? Colors.grey.shade500
-                                  : AppColors.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${event.currentAttendees}/${event.maxAttendees}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isPast
-                                    ? Colors.grey.shade500
-                                    : Colors.grey.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    // Tags
-                    if (event.tags.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: event.tags.take(3).map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              tag,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                        ],
                       ),
+
+                      const SizedBox(height: 12),
+
+                      // Hôte et participants
+                      Row(
+                        children: [
+                          // Hôte
+                          Expanded(
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: isDesktop ? 18 : (isTablet ? 16 : 14),
+                                  backgroundColor:
+                                      AppColors.primary.withOpacity(0.1),
+                                  child: Text(
+                                    event.host.name.isNotEmpty
+                                        ? event.host.name[0].toUpperCase()
+                                        : 'H',
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 14 : (isTablet ? 12 : 11),
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    event.host.name,
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                                      color: isPast
+                                          ? Colors.grey.shade500
+                                          : Colors.grey.shade700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Nombre de participants
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.people,
+                                size: isDesktop ? 22 : (isTablet ? 20 : 18),
+                                color: isPast
+                                    ? Colors.grey.shade500
+                                    : AppColors.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${event.currentAttendees}/${event.maxAttendees}',
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                                  color: isPast
+                                      ? Colors.grey.shade500
+                                      : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // Tags
+                      if (event.tags.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: event.tags.take(isDesktop ? 6 : (isTablet ? 5 : 4)).map((tag) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                tag,
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 14 : (isTablet ? 13 : 12),
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],

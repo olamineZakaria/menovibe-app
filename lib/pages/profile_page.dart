@@ -6,6 +6,8 @@ import '../blocs/auth_bloc.dart';
 import '../models/user.dart';
 import '../constants/app_colors.dart';
 import '../utils/responsive.dart';
+import '../widgets/responsive_layout.dart';
+import '../pages/location_test_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -101,18 +103,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
             ),
-            child: Center(
-              child: Text(
-                user?.name?.isNotEmpty == true
-                    ? user!.name![0].toUpperCase()
-                    : 'U',
-                style: GoogleFonts.inter(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                  letterSpacing: -0.5,
-                ),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(40),
+              child: _buildProfileImage(user),
             ),
           ),
           const SizedBox(width: 20),
@@ -160,6 +153,72 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProfileImage(User user) {
+    // Check if user has a valid profile image URL
+    final profileImageUrl = user?.profileImageUrl;
+    final hasValidProfileImage = profileImageUrl != null &&
+        profileImageUrl.isNotEmpty &&
+        profileImageUrl.trim().isNotEmpty;
+
+    if (hasValidProfileImage) {
+      // Display the user's profile picture
+      return Image.network(
+        profileImageUrl,
+        width: 80,
+        height: 80,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          // If image fails to load, fall back to initial
+          return _buildInitialFallback(user);
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          // Show loading indicator while image loads
+          return Container(
+            width: 80,
+            height: 80,
+            color: AppColors.surface,
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      // No profile image available, show initial
+      return _buildInitialFallback(user);
+    }
+  }
+
+  Widget _buildInitialFallback(User user) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(40),
+      ),
+      child: Center(
+        child: Text(
+          user?.name?.isNotEmpty == true ? user!.name![0].toUpperCase() : 'U',
+          style: GoogleFonts.inter(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+            letterSpacing: -0.5,
+          ),
+        ),
       ),
     );
   }

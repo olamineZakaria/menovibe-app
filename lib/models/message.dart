@@ -46,6 +46,36 @@ class Message extends Equatable {
     );
   }
 
+  /// Convert to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'content': content,
+      'type': type.name,
+      'sender': sender?.toJson(),
+      'isUser': isUser,
+      'timestamp': timestamp.toIso8601String(),
+      'imageUrl': imageUrl,
+      'audioUrl': audioUrl,
+    };
+  }
+
+  /// Create from JSON
+  factory Message.fromJson(Map<String, dynamic> json) {
+    return Message(
+      id: json['id'],
+      content: json['content'],
+      type: MessageType.values.firstWhere(
+        (e) => e.name == json['type'],
+      ),
+      sender: json['sender'] != null ? Agent.fromJson(json['sender']) : null,
+      isUser: json['isUser'],
+      timestamp: DateTime.parse(json['timestamp']),
+      imageUrl: json['imageUrl'],
+      audioUrl: json['audioUrl'],
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,

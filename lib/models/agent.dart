@@ -43,6 +43,28 @@ class Agent extends Equatable {
     description: 'Community Connector',
   );
 
+  /// Convert to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'role': role.name,
+      'avatarAsset': avatarAsset,
+      'description': description,
+    };
+  }
+
+  /// Create from JSON
+  factory Agent.fromJson(Map<String, dynamic> json) {
+    return Agent(
+      name: json['name'],
+      role: AgentRole.values.firstWhere(
+        (e) => e.name == json['role'],
+      ),
+      avatarAsset: json['avatarAsset'],
+      description: json['description'],
+    );
+  }
+
   @override
   List<Object?> get props => [name, role, avatarAsset, description];
 }

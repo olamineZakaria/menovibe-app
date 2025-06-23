@@ -3,12 +3,23 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:weather/weather.dart';
 import '../config/api_config.dart';
+import '../models/weather_data.dart';
+import 'cache_service.dart';
 
 class WeatherService {
+  final CacheService _cacheService = CacheService();
+
   /// Get current weather data based on user's location
   Future<WeatherData?> getCurrentWeather() async {
     try {
       print('🌍 Starting location detection...');
+
+      // Vérifier d'abord le cache
+      final cachedWeather = await _cacheService.getCachedWeatherData();
+      if (cachedWeather != null) {
+        print('✅ Données météo récupérées du cache');
+        return cachedWeather;
+      }
 
       // Check and request location permissions
       LocationPermission permission = await Geolocator.checkPermission();
@@ -50,7 +61,10 @@ class WeatherService {
       // Check if weather API is configured
       if (!ApiConfig.isConfigured) {
         print('⚠️ Weather API not configured, returning mock data');
-        return _getMockWeatherData(position);
+        final mockData = _getMockWeatherData(position);
+        // Sauvegarder les données mock en cache
+        await _cacheService.cacheWeatherData(mockData);
+        return mockData;
       }
 
       // Fetch weather data using OpenWeatherMap API
@@ -67,7 +81,12 @@ class WeatherService {
       if (weatherResponse.statusCode == 200) {
         final weatherData = json.decode(weatherResponse.body);
         print('✅ Weather data received successfully');
-        return WeatherData.fromJson(weatherData);
+        final weatherDataObj = WeatherData.fromJson(weatherData);
+
+        // Sauvegarder en cache
+        await _cacheService.cacheWeatherData(weatherDataObj);
+
+        return weatherDataObj;
       } else {
         print(
             '❌ Weather API error: ${weatherResponse.statusCode} - ${weatherResponse.body}');
@@ -94,90 +113,116 @@ class WeatherService {
 
   /// Get personalized advice based on weather conditions
   Future<String?> getPersonalizedAdvice(WeatherData weatherData) async {
-    const maxRetries = 3;
-    int retryCount = 0;
+    try {
+      // Créer une clé unique pour cette météo
+      final weatherKey = _cacheService.createWeatherKey(weatherData);
 
-    while (retryCount <= maxRetries) {
-      try {
-        print(
-            '🤖 Generating personalized advice with Gemini... (attempt ${retryCount + 1})');
+      // Vérifier d'abord le cache
+      final cachedAdvice = await _cacheService.getCachedAdvice(weatherKey);
+      if (cachedAdvice != null) {
+        print('✅ Conseil Gemini récupéré du cache');
+        return cachedAdvice;
+      }
 
-        // Use progressively shorter prompts
-        final prompt = _getPromptForAttempt(retryCount, weatherData);
+      const maxRetries = 3;
+      int retryCount = 0;
 
-        // Call Gemini API without token limits
-        final response = await http
-            .post(
-              Uri.parse(
-                  '${ApiConfig.geminiApiEndpoint}?key=${ApiConfig.geminiApiKey}'),
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: json.encode({
-                'contents': [
-                  {
-                    'parts': [
-                      {
-                        'text': prompt,
-                      }
-                    ]
-                  }
-                ],
-                'generationConfig': {
-                  'temperature': 0.7,
-                  'topP': 0.9,
-                  'topK': 40,
-                  'candidateCount': 1,
+      while (retryCount <= maxRetries) {
+        try {
+          print(
+              '🤖 Generating personalized advice with Gemini... (attempt ${retryCount + 1})');
+
+          // Use progressively shorter prompts
+          final prompt = _getPromptForAttempt(retryCount, weatherData);
+
+          // Call Gemini API without token limits
+          final response = await http
+              .post(
+                Uri.parse(
+                    '${ApiConfig.geminiApiEndpoint}?key=${ApiConfig.geminiApiKey}'),
+                headers: {
+                  'Content-Type': 'application/json',
                 },
-              }),
-            )
-            .timeout(const Duration(seconds: 15));
+                body: json.encode({
+                  'contents': [
+                    {
+                      'parts': [
+                        {
+                          'text': prompt,
+                        }
+                      ]
+                    }
+                  ],
+                  'generationConfig': {
+                    'temperature': 0.7,
+                    'topP': 0.9,
+                    'topK': 40,
+                    'candidateCount': 1,
+                  },
+                }),
+              )
+              .timeout(const Duration(seconds: 15));
 
-        print('🤖 Gemini API response status: ${response.statusCode}');
-        print('🤖 Gemini API response body: ${response.body}');
+          print('🤖 Gemini API response status: ${response.statusCode}');
+          print('🤖 Gemini API response body: ${response.body}');
 
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
 
-          // Check for finish reason
-          if (data['candidates'] != null &&
-              data['candidates'].isNotEmpty &&
-              data['candidates'][0]['finishReason'] == 'MAX_TOKENS') {
-            print('⚠️ Response hit MAX_TOKENS limit, trying shorter prompt...');
-            retryCount++;
-            continue;
-          }
+            // Check for finish reason
+            if (data['candidates'] != null &&
+                data['candidates'].isNotEmpty &&
+                data['candidates'][0]['finishReason'] == 'MAX_TOKENS') {
+              print(
+                  '⚠️ Response hit MAX_TOKENS limit, trying shorter prompt...');
+              retryCount++;
+              continue;
+            }
 
-          // Try to parse response
-          String? advice = _parseGeminiResponse(data);
+            // Try to parse response
+            String? advice = _parseGeminiResponse(data);
 
-          if (advice != null && advice.isNotEmpty && advice.length > 5) {
-            print('✅ Gemini advice generated successfully: $advice');
-            return advice;
+            if (advice != null && advice.isNotEmpty && advice.length > 5) {
+              print('✅ Gemini advice generated successfully: $advice');
+
+              // Sauvegarder le conseil en cache
+              await _cacheService.cacheAdvice(weatherKey, advice);
+
+              return advice;
+            } else {
+              print('❌ No valid advice found in Gemini response');
+              retryCount++;
+              await Future.delayed(Duration(seconds: 1));
+              continue;
+            }
           } else {
-            print('❌ No valid advice found in Gemini response');
+            print(
+                '❌ Gemini API error: ${response.statusCode} - ${response.body}');
             retryCount++;
             await Future.delayed(Duration(seconds: 1));
             continue;
           }
-        } else {
-          print(
-              '❌ Gemini API error: ${response.statusCode} - ${response.body}');
+        } catch (e) {
+          print('❌ Error getting Gemini advice: $e');
           retryCount++;
           await Future.delayed(Duration(seconds: 1));
           continue;
         }
-      } catch (e) {
-        print('❌ Error getting Gemini advice: $e');
-        retryCount++;
-        await Future.delayed(Duration(seconds: 1));
-        continue;
       }
-    }
 
-    // All retries failed, use fallback
-    print('🔄 Using local fallback advice after ${retryCount} failed attempts');
-    return _getLocalAdvice(weatherData);
+      // All retries failed, use fallback
+      print(
+          '🔄 Using local fallback advice after ${retryCount} failed attempts');
+      final fallbackAdvice = _getLocalAdvice(weatherData);
+
+      // Sauvegarder le conseil de fallback en cache
+      await _cacheService.cacheAdvice(weatherKey, fallbackAdvice);
+
+      return fallbackAdvice;
+    } catch (e) {
+      print('❌ Error in getPersonalizedAdvice: $e');
+      return _getLocalAdvice(weatherData);
+    }
   }
 
   /// Get appropriate prompt based on retry attempt
@@ -274,13 +319,13 @@ class WeatherService {
     final description = weatherData.description.toLowerCase();
 
     if (temp > 25) {
-      return "It's warm today! Stay hydrated and wear light, breathable clothing to help manage hot flashes.";
+      return "Il fait chaud aujourd'hui ! Restez hydratée et portez des vêtements légers et respirants pour gérer les bouffées de chaleur.";
     } else if (temp > 15) {
-      return "Pleasant weather! Perfect for a gentle walk outside to boost your mood and energy levels.";
+      return "Météo agréable ! Parfait pour une promenade douce à l'extérieur pour booster votre humeur et votre énergie.";
     } else if (temp > 5) {
-      return "Cool day ahead! Layer up with warm clothing and consider a hot tea to stay comfortable.";
+      return "Journée fraîche ! Couvrez-vous avec des vêtements chauds et envisagez un thé chaud pour rester confortable.";
     } else {
-      return "Cold weather alert! Bundle up warmly and stay active indoors to maintain your body temperature.";
+      return "Alerte météo froide ! Couvrez-vous bien et restez active à l'intérieur pour maintenir votre température corporelle.";
     }
   }
 
@@ -315,46 +360,14 @@ class WeatherService {
       return {'error': e.toString()};
     }
   }
-}
 
-/// Data class to hold weather information
-class WeatherData {
-  final double temperature;
-  final String description;
-  final int humidity;
-  final double windSpeed;
-  final String location;
-  final String icon;
-
-  WeatherData({
-    required this.temperature,
-    required this.description,
-    required this.humidity,
-    required this.windSpeed,
-    required this.location,
-    required this.icon,
-  });
-
-  factory WeatherData.fromJson(Map<String, dynamic> json) {
-    return WeatherData(
-      temperature: (json['main']['temp'] as num).toDouble(),
-      description: json['weather'][0]['description'],
-      humidity: json['main']['humidity'],
-      windSpeed: (json['wind']['speed'] as num).toDouble(),
-      location: json['name'],
-      icon: json['weather'][0]['icon'],
-    );
+  /// Get cache statistics
+  Future<Map<String, dynamic>> getCacheStats() async {
+    return await _cacheService.getCacheStats();
   }
 
-  /// Get weather icon URL
-  String get iconUrl => 'https://openweathermap.org/img/wn/$icon@2x.png';
-
-  /// Get temperature with appropriate unit
-  String get temperatureDisplay => '${temperature.round()}°C';
-
-  /// Get weather description with proper capitalization
-  String get descriptionDisplay => description
-      .split(' ')
-      .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
-      .join(' ');
+  /// Clear expired cache
+  Future<void> clearExpiredCache() async {
+    await _cacheService.clearExpiredCache();
+  }
 }

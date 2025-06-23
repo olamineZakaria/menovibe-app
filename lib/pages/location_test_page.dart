@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/weather_service.dart';
+import '../models/weather_data.dart';
 import '../constants/app_colors.dart';
 
 class LocationTestPage extends StatefulWidget {

@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:googleapis_auth/auth_io.dart' as auth;
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:convert';
 import '../models/user.dart';
 
 class AuthService {
@@ -165,6 +168,25 @@ class AuthService {
       _userController.add(user);
     } catch (e) {
       throw Exception('Update failed: ${e.toString()}');
+    }
+  }
+
+  Future<String?> getGCloudAccessToken() async {
+    try {
+      final jsonString = await rootBundle
+          .loadString('assets/menovibe-gcloud-service-account.json');
+      final credentials =
+          auth.ServiceAccountCredentials.fromJson(json.decode(jsonString));
+
+      final scopes = ['https://www.googleapis.com/auth/cloud-platform'];
+
+      final client = await auth.clientViaServiceAccount(credentials, scopes);
+      final accessToken = client.credentials.accessToken;
+
+      return accessToken.data;
+    } catch (e) {
+      print('Error getting GCloud access token: $e');
+      return null;
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:weather/weather.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shimmer/shimmer.dart';
 import '../blocs/auth_bloc.dart';
 import '../models/user.dart' as user_model;
 import '../widgets/quick_action_card.dart';
@@ -21,6 +22,8 @@ import '../services/event_service.dart';
 import '../widgets/event_card.dart';
 import '../widgets/weather_widget.dart';
 import 'event_detail_page.dart';
+import 'menovibe_chat_page.dart';
+import '../services/cycle_analysis_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -84,11 +87,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       'order': 0,
     },
     {
-      'title': 'Chat avec Luna',
-      'subtitle': 'Obtenir un soutien personnalisé',
+      'title': 'Menovibe',
+      'subtitle': 'Support multi-agents pour la ménopause',
       'icon': Icons.psychology_rounded,
       'color': AppColors.secondary,
-      'route': '/ai-agent',
+      'route': '/menovibe-chat',
       'order': 1,
     },
     {
@@ -104,7 +107,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final List<Widget> _pages = [
     const HomeContent(),
     const SymptomTrackerPage(),
-    const AIAgentPage(),
+    const MenovibeChatPage(),
     const RecommendationsPage(),
     const ProfilePage(),
   ];
@@ -165,7 +168,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               _buildNavItem(0, Icons.home_rounded, 'Accueil'),
               _buildNavItem(1, Icons.track_changes_rounded, 'Suivi'),
-              _buildNavItem(2, Icons.psychology_rounded, 'Luna'),
+              _buildNavItem(2, Icons.psychology_rounded, 'Menovibe'),
               _buildNavItem(3, Icons.recommend_rounded, 'Conseils'),
               _buildNavItem(4, Icons.person_rounded, 'Profil'),
             ],
@@ -229,12 +232,20 @@ class _HomeContentState extends State<HomeContent>
   final ScrollController _scrollController = ScrollController();
   late AnimationController _parallaxController;
   late Animation<double> _parallaxAnimation;
-  final Map<String, dynamic> _weeklyStats = {
-    'stress_level': 0,
-    'sleep_quality': 0,
-    'hot_flashes': 0,
-    'mood_stability': 0,
+
+  // Service d'analyse de cycle
+  final CycleAnalysisService _cycleAnalysisService = CycleAnalysisService();
+
+  // Statistiques hebdomadaires mises à jour
+  Map<String, dynamic> _weeklyStats = {
+    'stress': 0.0,
+    'sleep': 0.0,
+    'hotFlashes': 0.0,
+    'moodStability': 0.0,
   };
+
+  // État de chargement
+  bool _isLoadingStats = false;
 
   // Helper methods for safe data access
   String _safeGetUserName(user_model.User? user) {
@@ -338,6 +349,9 @@ class _HomeContentState extends State<HomeContent>
     ));
 
     _scrollController.addListener(_onScroll);
+
+    // Charger les statistiques hebdomadaires
+    _loadWeeklyStats();
   }
 
   void _onScroll() {
@@ -661,13 +675,27 @@ class _HomeContentState extends State<HomeContent>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Vos progrès cette semaine',
-          style: GoogleFonts.inter(
-            fontSize: isTablet ? 24 : 20,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Vos progrès cette semaine',
+              style: GoogleFonts.inter(
+                fontSize: isTablet ? 24 : 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (_isLoadingStats)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         GridView.count(
@@ -678,7 +706,8 @@ class _HomeContentState extends State<HomeContent>
           mainAxisSpacing: 16,
           childAspectRatio: isTablet ? 1.2 : 1.5,
           children: _weeklyStats.entries.map((entry) {
-            final isPositive = entry.value > 0;
+            final value = (entry.value as num).toDouble();
+            final isPositive = value > 0;
             final icon = _getStatIcon(entry.key);
             final title = _getStatTitle(entry.key);
 
@@ -700,16 +729,16 @@ class _HomeContentState extends State<HomeContent>
                 children: [
                   Icon(
                     icon,
-                    color: isPositive ? AppColors.success : AppColors.warning,
+                    color: _getStatColor(entry.key, value),
                     size: isTablet ? 32 : 28,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${isPositive ? '+' : ''}${entry.value}%',
+                    '${isPositive ? '+' : ''}${value.toStringAsFixed(1)}%',
                     style: GoogleFonts.inter(
                       fontSize: isTablet ? 20 : 18,
                       fontWeight: FontWeight.bold,
-                      color: isPositive ? AppColors.success : AppColors.warning,
+                      color: _getStatColor(entry.key, value),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -872,78 +901,46 @@ class _HomeContentState extends State<HomeContent>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const Spacer(),
                         Text(
                           recommendation['title'],
                           style: GoogleFonts.inter(
-                            fontSize: isTablet ? 16 : 15,
-                            fontWeight: FontWeight.w700,
+                            fontSize: isTablet ? 20 : 18,
+                            fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
-                            height: 1.3,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
-                        Expanded(
-                          child: Text(
-                            recommendation['description'],
-                            style: GoogleFonts.inter(
-                              fontSize: isTablet ? 14 : 13,
-                              color: AppColors.textSecondary,
-                              height: 1.4,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          recommendation['description'],
+                          style: GoogleFonts.inter(
+                            fontSize: isTablet ? 14 : 12,
+                            color: AppColors.textSecondary,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 12),
+                        const Spacer(),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.textSecondary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    recommendation['type'] == 'article'
-                                        ? Icons.access_time_rounded
-                                        : Icons.timer_rounded,
-                                    size: 14,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    recommendation['readTime'] ??
-                                        recommendation['duration'],
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              recommendation['type'] == 'article'
+                                  ? '${recommendation['readTime']} de lecture'
+                                  : '${recommendation['duration']} de séance',
+                              style: GoogleFonts.inter(
+                                fontSize: isTablet ? 12 : 11,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: recommendation['color'].withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.arrow_forward_rounded,
-                                size: 16,
-                                color: recommendation['color'],
-                              ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: AppColors.textSecondary,
                             ),
                           ],
                         ),
@@ -987,13 +984,13 @@ class _HomeContentState extends State<HomeContent>
 
   IconData _getStatIcon(String statKey) {
     switch (statKey) {
-      case 'stress_level':
+      case 'stress':
         return Icons.psychology_rounded;
-      case 'sleep_quality':
+      case 'sleep':
         return Icons.bedtime_rounded;
-      case 'hot_flashes':
+      case 'hotFlashes':
         return Icons.thermostat_rounded;
-      case 'mood_stability':
+      case 'moodStability':
         return Icons.mood_rounded;
       default:
         return Icons.trending_up_rounded;
@@ -1002,16 +999,75 @@ class _HomeContentState extends State<HomeContent>
 
   String _getStatTitle(String statKey) {
     switch (statKey) {
-      case 'stress_level':
+      case 'stress':
         return 'Stress';
-      case 'sleep_quality':
+      case 'sleep':
         return 'Sommeil';
-      case 'hot_flashes':
+      case 'hotFlashes':
         return 'Bouffées';
-      case 'mood_stability':
+      case 'moodStability':
         return 'Humeur';
       default:
         return 'Progrès';
+    }
+  }
+
+  Color _getStatColor(String statKey, double value) {
+    bool isImprovement;
+
+    switch (statKey) {
+      case 'stress':
+      case 'hotFlashes':
+        isImprovement = value < 0; // Négatif = amélioration
+        break;
+      case 'sleep':
+      case 'moodStability':
+        isImprovement = value > 0; // Positif = amélioration
+        break;
+      default:
+        return AppColors.textSecondary;
+    }
+
+    if (value.abs() < 1) {
+      return AppColors.textSecondary; // Stable
+    }
+
+    return isImprovement ? AppColors.success : AppColors.warning;
+  }
+
+  /// Charger les statistiques hebdomadaires avec l'analyse Gemini
+  Future<void> _loadWeeklyStats() async {
+    if (_isLoadingStats) return;
+
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      // Générer des données de test pour la démonstration
+      // En production, cela viendrait de votre base de données
+      final testData = _cycleAnalysisService.generateTestData();
+
+      print('📊 Analyse des données de cycle avec Gemini...');
+      final analysisResult =
+          await _cycleAnalysisService.analyzeCycleData(testData);
+
+      setState(() {
+        _weeklyStats = {
+          'stress': (analysisResult['stress'] as num).toDouble(),
+          'sleep': (analysisResult['sleep'] as num).toDouble(),
+          'hotFlashes': (analysisResult['hotFlashes'] as num).toDouble(),
+          'moodStability': (analysisResult['moodStability'] as num).toDouble(),
+        };
+        _isLoadingStats = false;
+      });
+
+      print('✅ Statistiques hebdomadaires mises à jour: $_weeklyStats');
+    } catch (e) {
+      print('❌ Erreur lors du chargement des statistiques: $e');
+      setState(() {
+        _isLoadingStats = false;
+      });
     }
   }
 }

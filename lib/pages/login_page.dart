@@ -177,11 +177,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               .fadeIn(delay: 400.ms, duration: 800.ms)
                               .slideY(begin: 0.3, curve: Curves.easeOutCubic),
                           const SizedBox(height: 24),
-                          _buildSocialLoginButtons()
-                              .animate()
-                              .fadeIn(delay: 600.ms, duration: 800.ms)
-                              .slideY(begin: 0.3, curve: Curves.easeOutCubic),
-                          const SizedBox(height: 24),
                           _buildForgotPassword()
                               .animate()
                               .fadeIn(delay: 800.ms, duration: 600.ms),
@@ -265,10 +260,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               builder: (context, child) {
                 return Transform.scale(
                   scale: 1.0 + (0.1 * _iconAnimation.value),
-                  child: const Icon(
-                    Icons.favorite_rounded,
-                    size: 56,
-                    color: AppColors.primary,
+                  child: Image.asset(
+                    'assets/logo-removebg-preview.png',
+                    height: 80,
+                    width: 80,
+                    fit: BoxFit.contain,
                   ),
                 );
               },
@@ -398,96 +394,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSocialLoginButtons() {
-    return Column(
-      children: [
-        const Text(
-          'Or continue with',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildSocialButton(
-                icon: 'assets/icons/google_icon.png',
-                label: 'Google',
-                onPressed: _handleGoogleSignIn,
-                color: Colors.white,
-                textColor: Colors.black87,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildSocialButton(
-                icon: 'assets/icons/apple_icon.png',
-                label: 'Apple',
-                onPressed: _handleAppleSignIn,
-                color: Colors.black,
-                textColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSocialButton({
-    required String icon,
-    required String label,
-    required VoidCallback onPressed,
-    required Color color,
-    required Color textColor,
-  }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onPressed,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon == 'assets/icons/google_icon.png'
-                    ? Icons.g_mobiledata
-                    : Icons.apple,
-                size: 20,
-                color: textColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -694,49 +600,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               password: _passwordController.text,
             ),
           );
-    }
-  }
-
-  Future<void> _handleGoogleSignIn() async {
-    try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      final GoogleSignInAccount? account = await googleSignIn.signIn();
-
-      if (account != null) {
-        // Handle Google sign-in success
-        // You would typically pass the account to your AuthBloc
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Welcome, ${account.displayName}!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (error) {
-      _showEmpatheticError('Google sign-in failed');
-    }
-  }
-
-  Future<void> _handleAppleSignIn() async {
-    try {
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-
-      if (credential.userIdentifier != null) {
-        // Handle Apple sign-in success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Welcome!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (error) {
-      _showEmpatheticError('Apple sign-in failed');
     }
   }
 }

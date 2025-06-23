@@ -5,6 +5,7 @@ import 'pages/login_page.dart';
 import 'pages/signup_page.dart';
 import 'pages/home_page.dart';
 import 'pages/ai_agent_page.dart';
+import 'pages/menovibe_chat_page.dart';
 import 'pages/resources_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/community_page.dart';
@@ -51,6 +52,7 @@ class MenopauseWellnessApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'Menopause Wellness',
         theme: ThemeData(
           useMaterial3: true,
@@ -324,6 +326,7 @@ class MenopauseWellnessApp extends StatelessWidget {
           '/signup': (context) => const SignupPage(),
           '/home': (context) => const HomePage(),
           '/ai-agent': (context) => const AIAgentPage(),
+          '/menovibe-chat': (context) => const MenovibeChatPage(),
           '/resources': (context) => const ResourcesPage(),
           '/profile': (context) => const ProfilePage(),
           '/community': (context) => const CommunityPage(),
